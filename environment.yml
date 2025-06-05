@@ -1,8 +1,0 @@
-name: airq
-channels:
-  - defaults
-dependencies:
-  - python=3.13.2
-  - pip:
-      - pycryptodome=3.22.0
-      - python-dotenv==1.1.0
