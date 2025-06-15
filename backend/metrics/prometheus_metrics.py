@@ -24,9 +24,21 @@ humidity_gauge = Gauge(
     ['sensor_path']
 )
 
+humidity_abs_gauge = Gauge(
+    'airq_humidity_abs_gm3',
+    'Absolute Luftfeuchtigkeit in g/m³',
+    ['sensor_path']
+)
+
 co2_gauge = Gauge(
     'airq_co2_ppm',
     'CO2-Konzentration in ppm', 
+    ['sensor_path']
+)
+
+co_gauge = Gauge(
+    'airq_co_mgm3',
+    'CO-Konzentration in mg/m³',
     ['sensor_path']
 )
 
@@ -43,9 +55,33 @@ no2_gauge = Gauge(
     ['sensor_path']
 )
 
+h2s_gauge = Gauge(
+    'airq_h2s_ugm3',
+    'H2S-Konzentration in µg/m³',
+    ['sensor_path']
+)
+
+o3_gauge = Gauge(
+    'airq_o3_ugm3',
+    'O3-Konzentration in µg/m³',
+    ['sensor_path']
+)
+
+oxygen_gauge = Gauge(
+    'airq_oxygen_percent',
+    'Sauerstoff-Konzentration in Volumen-%',
+    ['sensor_path']
+)
+
 tvoc_gauge = Gauge(
     'airq_tvoc_ppb', 
     'TVOC-Konzentration in ppb',
+    ['sensor_path']
+)
+
+pm1_gauge = Gauge(
+    'airq_pm1_ugm3',
+    'PM1 Feinstaub in µg/m³',
     ['sensor_path']
 )
 
@@ -67,6 +103,48 @@ sound_gauge = Gauge(
     ['sensor_path']
 )
 
+sound_max_gauge = Gauge(
+    'airq_sound_max_db',
+    'Maximaler Geräuschpegel in dB',
+    ['sensor_path']
+)
+
+dewpt_gauge = Gauge(
+    'airq_dewpt_celsius',
+    'Taupunkt in °C',
+    ['sensor_path']
+)
+
+health_gauge = Gauge(
+    'airq_health_index',
+    'Gesundheitsindex (0-1000)',
+    ['sensor_path']
+)
+
+dco2dt_gauge = Gauge(
+    'airq_dco2dt_ppbs',
+    'CO2-Änderungsrate in ppb/s',
+    ['sensor_path']
+)
+
+dhdt_gauge = Gauge(
+    'airq_dhdt_mgm3s',
+    'Änderungsrate der absoluten Luftfeuchtigkeit in mg/m³/s',
+    ['sensor_path']
+)
+
+typs_gauge = Gauge(
+    'airq_typs_um',
+    'Durchschnittliche Feinstaub-Partikelgröße in µm',
+    ['sensor_path']
+)
+
+timestamp_gauge = Gauge(
+    'airq_timestamp_unix',
+    'Unix-Zeitstempel der Messung',
+    ['sensor_path']
+)
+
 # Counter für Anzahl der verarbeiteten Datensätze
 sensor_data_total = Counter(
     'airq_sensor_data_total',
@@ -78,13 +156,26 @@ sensor_data_total = Counter(
 SENSOR_METRICS = {
     'temperature': temperature_gauge,
     'humidity': humidity_gauge,
+    'humidity_abs': humidity_abs_gauge,
     'co2': co2_gauge,
+    'co': co_gauge,
     'pressure': pressure_gauge,
     'no2': no2_gauge,
+    'h2s': h2s_gauge,
+    'o3': o3_gauge,
+    'oxygen': oxygen_gauge,
     'tvoc': tvoc_gauge,
-    'pm2_5': pm25_gauge,  # air-Q verwendet oft pm2_5 statt pm25
+    'pm1': pm1_gauge,
+    'pm2_5': pm25_gauge,  # air-Q verwendet pm2_5
     'pm10': pm10_gauge,
     'sound': sound_gauge,
+    'sound_max': sound_max_gauge,
+    'dewpt': dewpt_gauge,
+    'health': health_gauge,
+    'dCO2dt': dco2dt_gauge,
+    'dHdt': dhdt_gauge,
+    'TypPS': typs_gauge,
+    'timestamp': timestamp_gauge,
 }
 
 

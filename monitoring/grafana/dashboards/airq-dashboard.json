@@ -41,7 +41,7 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "gridPos": {"h": 6, "w": 5, "x": 0, "y": 0},
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -75,7 +75,7 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "gridPos": {"h": 6, "w": 5, "x": 5, "y": 0},
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -85,7 +85,7 @@
     },
     {
       "id": 3,
-      "title": "CO2-Konzentration",
+      "title": "CO2",
       "type": "stat",
       "targets": [
         {
@@ -108,7 +108,7 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "gridPos": {"h": 6, "w": 5, "x": 10, "y": 0},
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -140,7 +140,7 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "gridPos": {"h": 6, "w": 5, "x": 15, "y": 0},
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -150,7 +150,40 @@
     },
     {
       "id": 5,
-      "title": "Temperatur Verlauf",
+      "title": "Gesundheitsindex",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "airq_health_index",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1000,
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 200},
+              {"color": "yellow", "value": 500},
+              {"color": "green", "value": 700}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 6, "w": 4, "x": 20, "y": 0},
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      }
+    },
+    {
+      "id": 10,
+      "title": "Temperatur (Raumtemperatur in °C)",
       "type": "timeseries",
       "targets": [
         {
@@ -177,11 +210,104 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 6}
     },
     {
-      "id": 6,
-      "title": "CO2 Verlauf",
+      "id": 11,
+      "title": "Luftfeuchtigkeit (Relative Feuchtigkeit in %)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_humidity_percent",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 6}
+    },
+    {
+      "id": 12,
+      "title": "Taupunkt (Kondensationstemperatur in °C)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_dewpt_celsius",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 6}
+    },
+    {
+      "id": 28,
+      "title": "Absolute Luftfeuchtigkeit (Wasserdampf in g/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_humidity_abs_gm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "g/m³",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 14}
+    },
+    {
+      "id": 13,
+      "title": "CO2 (Kohlendioxid-Konzentration in ppm)",
       "type": "timeseries",
       "targets": [
         {
@@ -208,11 +334,104 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 14}
     },
     {
-      "id": 7,
-      "title": "Feinstaub PM2.5",
+      "id": 14,
+      "title": "CO (Kohlenmonoxid-Konzentration in mg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_co_mgm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mgm3",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 14}
+    },
+    {
+      "id": 15,
+      "title": "Luftdruck (Absoluter Druck in hPa)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_pressure_hpa",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pressurehpa",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 22}
+    },
+    {
+      "id": 16,
+      "title": "PM1 Feinstaub (Partikel <1µm in µg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_pm1_ugm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µg/m³",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 22}
+    },
+    {
+      "id": 17,
+      "title": "PM2.5 Feinstaub (Partikel <2.5µm in µg/m³)",
       "type": "timeseries",
       "targets": [
         {
@@ -239,11 +458,166 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 22}
     },
     {
-      "id": 8,
-      "title": "TVOC",
+      "id": 18,
+      "title": "PM10 Feinstaub (Partikel <10µm in µg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_pm10_ugm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µg/m³",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 30}
+    },
+    {
+      "id": 19,
+      "title": "Partikelgröße (Durchschnittsgröße in µm)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_typs_um",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µm",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 30}
+    },
+    {
+      "id": 20,
+      "title": "NO2 (Stickstoffdioxid-Konzentration in µg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_no2_ppm",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ppm",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 30}
+    },
+    {
+      "id": 21,
+      "title": "H2S (Schwefelwasserstoff-Konzentration in µg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_h2s_ugm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µg/m³",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 38}
+    },
+    {
+      "id": 22,
+      "title": "O3 (Ozon-Konzentration in µg/m³)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_o3_ugm3",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µg/m³",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 38}
+    },
+    {
+      "id": 23,
+      "title": "TVOC (Flüchtige org. Verbindungen in ppb)",
       "type": "timeseries",
       "targets": [
         {
@@ -270,10 +644,105 @@
           }
         }
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 38}
     },
     {
-      "id": 9,
+      "id": 24,
+      "title": "Sauerstoff (O2-Konzentration in Vol.-%)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_oxygen_percent",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 46}
+    },
+    {
+      "id": 25,
+      "title": "Geräuschpegel (Lärm in dB(A))",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_sound_db",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dB",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 46}
+    },
+    {
+      "id": 27,
+      "title": "Gesundheitsindex (Bewertung 0-1000)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "airq_health_index",
+          "legendFormat": "{{sensor_path}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1000,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "stacking": {"mode": "none", "group": "A"},
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "scaleDistribution": {"type": "linear"},
+            "hideFrom": {"legend": false, "tooltip": false, "vis": false}
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 46}
+    },
+    {
+      "id": 30,
       "title": "Datenverarbeitung Status",
       "type": "stat",
       "targets": [
@@ -295,7 +764,7 @@
           }
         }
       },
-      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 24},
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 54},
       "options": {
         "colorMode": "background",
         "graphMode": "area",

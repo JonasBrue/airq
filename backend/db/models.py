@@ -19,14 +19,12 @@ class SensorData(Base):
     """
     Modell für die Speicherung von air-Q Sensordaten.
     
-    Diese Tabelle speichert sowohl die verschlüsselten Rohdaten
-    als auch die entschlüsselten und verarbeiteten Sensormesswerte.
+    Diese Tabelle speichert die entschlüsselten und verarbeiteten Sensormesswerte.
     
     Attributes:
         id: Eindeutige Datensatz-ID (Primary Key)
         sensor_path: Identifikator des Sensors (z.B. '/livingroom')
         ts_collected: Zeitstempel der Datensammlung mit Zeitzone
-        raw_data: Verschlüsselte Originaldaten vom air-Q Sensor
         decoded_data: Entschlüsselte und strukturierte Messwerte
     """
     
@@ -55,11 +53,6 @@ class SensorData(Base):
     )
     
     # Datenfelder
-    raw_data = Column(
-        JSON,
-        nullable=False
-    )
-    
     decoded_data = Column(
         JSON,
         nullable=False

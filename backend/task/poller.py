@@ -146,13 +146,12 @@ class SensorPoller:
         
         Args:
             sensor_path: Pfad des Sensors
-            data: Dictionary mit raw_data und decoded_data
+            data: Dictionary mit decoded_data
         """
         async with async_session() as session:
             try:
                 record = SensorData(
                     sensor_path=sensor_path,
-                    raw_data=data["raw_data"],
                     decoded_data=data["decoded_data"],
                 )
                 session.add(record)
