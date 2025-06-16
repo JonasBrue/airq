@@ -141,62 +141,6 @@ async def get_latest_sensor_data(
 
 
 @router.get(
-    "/summary",
-    response_model=SensorDataListResponse,
-    summary="Sensordaten mit Metadaten",
-    description="Erweiterte Sensordaten-Abfrage mit zusätzlichen Metadaten."
-)
-async def get_sensor_data_summary(
-    limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
-    sensor_path: Optional[str] = Query(default=None),
-    session: AsyncSession = Depends(get_session)
-) -> SensorDataListResponse:
-    """
-    Ruft Sensordaten mit zusätzlichen Metadaten ab.
-    
-    Returns:
-        Erweiterte Response mit Daten und Metadaten
-    """
-    try:
-        # Hauptdaten abrufen (wiederverwendung der Logik)
-        sensor_data = await get_latest_sensor_data(
-            limit=limit,
-            offset=offset, 
-            sensor_path=sensor_path,
-            session=session
-        )
-        
-        # Metadaten sammeln
-        sensor_paths = list(set(item.sensor_path for item in sensor_data))
-        
-        time_range = None
-        if sensor_data:
-            timestamps = [item.ts_collected for item in sensor_data]
-            time_range = {
-                "earliest": min(timestamps),
-                "latest": max(timestamps)
-            }
-        
-        return SensorDataListResponse(
-            data=sensor_data,
-            count=len(sensor_data),
-            sensor_paths=sensor_paths,
-            time_range=time_range
-        )
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions
-        raise
-    except Exception as e:
-        logger.error(f"Fehler beim Erstellen der Summary: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Fehler beim Erstellen der Zusammenfassung"
-        ) from e
-
-
-@router.get(
     "/sensors",
     response_model=List[str],
     summary="Verfügbare Sensoren auflisten",
