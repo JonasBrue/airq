@@ -1,16 +1,17 @@
 # air-Q Luftqualitätssensor
 
-Ein vollständiges System für die Sammlung, Verarbeitung und Visualisierung von air-Q Luftqualitätssensor-Daten.
+Ein vollständiges System für die Sammlung, Verarbeitung und Visualisierung von air-Q Luftqualitätssensor-Daten mit MCP Integration.
 
 ## 🌟 Überblick
 
-Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, deren kontinuierliche Sammlung und Aufbereitung sowie die Bereitstellung über eine moderne REST-API. Das System unterstützt Echtzeitmonitoring, historische Datenanalyse und automatisierte Berichtserstellung.
+Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, deren kontinuierliche Sammlung und Aufbereitung sowie die Bereitstellung über eine moderne REST-API und MCP Integration. Das System unterstützt Echtzeitmonitoring, historische Datenanalyse und automatisierte Berichtserstellung.
 
 ### Hauptfunktionen
 
 - ✅ **Automatisches Polling**: Kontinuierliche Datensammlung von konfigurierten air-Q Sensoren
 - 🔐 **Sichere Entschlüsselung**: Verarbeitung verschlüsselter air-Q Sensordaten
 - 📊 **REST API**: Flexible Abfrage- und Filtermöglichkeiten für Sensordaten
+- 🤖 **MCP Server**: MCP Integration für natürliche Sprachabfragen
 - 📈 **Monitoring**: Prometheus-Metriken und Grafana-Dashboards
 - 🗄️ **Datenspeicherung**: Robuste PostgreSQL-Datenbank mit optimierten Indizes
 - 🐳 **Container-Ready**: Vollständige Docker-Compose-Umgebung
@@ -18,6 +19,12 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
 ## 🏗️ Architektur
 
 ```
+                        ┌─────────────────┐               
+                        │   MCP Server    │───▶ z.B. Claude Desktop
+                        │ (API Interface) │     (Chat Interface)
+                        └─────────────────┘               
+                              │                       
+                              ▼                       
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │   air-Q Sensor  │───▶│  Backend API     │───▶│   PostgreSQL    │
 │  (verschlüsselt)│     │  (FastAPI)      │     │   Datenbank     │
@@ -43,6 +50,7 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
 
 - **Docker** und **Docker Compose**
 - **Git** für Repository-Klonen
+- **Conda/Anaconda** für MCP Server (optional)
 - Zugang zu einem air-Q Sensor im Netzwerk
 
 ### Installation
@@ -78,6 +86,60 @@ Nach dem Start können Sie die Services unter folgenden URLs erreichen:
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin123)
 - **Prometheus**: http://localhost:9090
 - **Health Check**: http://localhost:8000/sensors/health
+
+## 🤖 MCP Server
+
+Der air-Q MCP Server ermöglicht es, Sensordaten direkt über z.B. Claude Desktop in natürlicher Sprache abzufragen.
+
+### MCP Server Installation
+
+1. **Backend starten** (falls noch nicht gestartet)
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Conda Environment erstellen** (falls noch nicht vorhanden)
+   ```bash
+   conda env create -f backend/environment.yml
+   ```
+
+3. **Environment aktivieren und MCP Server installieren**
+   ```bash
+   conda activate airq
+   mcp install mcp_server.py
+   ```
+
+### Verfügbare Befehle
+
+Der MCP Server stellt folgende Tools bereit:
+
+- **`get_available_sensors`**: Listet alle verfügbaren air-Q Sensoren auf
+- **`get_sensor_data`**: Ruft aktuelle Sensordaten ab (mit Filtern)
+- **`get_sensor_summary`**: Detaillierte Statistiken für einen spezifischen Sensor
+- **`get_health_status`**: Überprüft den Systemstatus
+- **`start_backend`**: Anweisungen zum Backend-Start
+
+### Beispiel-Verwendung in Claude Desktop
+
+```
+Du: "Zeige mir die verfügbaren Sensoren"
+Claude: Verwendet get_available_sensors()
+
+Du: "Wie ist die aktuelle Luftqualität bei Sensor 1?"
+Claude: Verwendet get_sensor_data(sensor_path="/airq/1")
+
+Du: "Gib mir eine Zusammenfassung für Sensor /airq/1"
+Claude: Verwendet get_sensor_summary(sensor_path="/airq/1")
+```
+
+### MCP Server entwickeln/debuggen
+
+```bash
+# Entwicklungsmodus starten
+mcp dev mcp_server.py
+
+# Server-URL: http://localhost:6274
+```
 
 ## 📡 API Verwendung
 
@@ -146,12 +208,19 @@ Das vorkonfigurierte Grafana-Dashboard zeigt:
    python main.py
    ```
 
+4. **MCP Server testen**
+   ```bash
+   mcp dev mcp_server.py
+   ```
+
 ### Code-Struktur
 
 ```
 backend/
 ├── main.py              # FastAPI Anwendung
 ├── config.py            # Konfiguration
+├── Dockerfile           # Container-Definition
+├── environment.yml      # Conda Environment
 ├── api/                 # API Routen und Schemas
 │   ├── routes.py
 │   └── schemas.py
@@ -159,9 +228,24 @@ backend/
 │   ├── database.py
 │   └── models.py
 ├── task/                # Background Tasks
+│   ├── config.py
 │   └── poller.py
 └── metrics/             # Prometheus Metriken
     └── prometheus_metrics.py
+
+monitoring/
+├── grafana/             # Grafana Konfiguration
+│   ├── dashboards/      # Dashboard-Definitionen (JSON)
+│   │   └── airq-dashboard.json
+│   └── provisioning/    # Automatische Konfiguration
+│       ├── dashboards/  # Dashboard-Provider
+│       │   └── dashboard-provider.yml
+│       └── datasources/ # Datenquellen-Konfiguration
+│           └── prometheus.yml
+└── prometheus.yml       # Prometheus Konfiguration
+
+mcp_server.py            # MCP Server Integration
+docker-compose.yml       # Container Orchestrierung
 ```
 
 ### Testing

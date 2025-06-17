@@ -1,9 +1,11 @@
 name: airq
 channels:
   - defaults
+  - conda-forge
 dependencies:
   - python=3.13.2
   - pip
+  - uv
   - pip:
       - pycryptodome==3.23.0
       - python-dotenv==1.1.0
@@ -12,7 +14,8 @@ dependencies:
       - sqlalchemy==2.0.41
       - psycopg2-binary==2.9.10
       - pydantic==2.11.4
-      - pydantic-settings==2.2.1
+      - pydantic-settings==2.5.2
       - asyncpg==0.30.0
       - httpx==0.28.1
       - prometheus_client==0.21.1
+      - mcp[cli]==1.9.4
