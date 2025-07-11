@@ -23,8 +23,12 @@ services:
       AIRQ_HOST: ${AIRQ_HOST}
       AIRQ_PASSWORD: ${AIRQ_PASSWORD}
       AIRQ_SENSORS: ${AIRQ_SENSORS}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      HEALTH_ALERT_THRESHOLD: ${HEALTH_ALERT_THRESHOLD}
+      ALERT_COOLDOWN_MINUTES: ${ALERT_COOLDOWN_MINUTES}
       DATABASE_URL: postgresql+asyncpg://airq:airq@db:5432/airq
-      POLL_INTERVAL_SECONDS: 1.5
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -59,6 +63,8 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_USERS_DEFAULT_THEME: dark
+      GF_DEFAULT_TIMEZONE: Europe/Berlin
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning

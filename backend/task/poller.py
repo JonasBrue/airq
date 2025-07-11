@@ -17,6 +17,7 @@ from Crypto.Cipher import AES
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
+from .notifications import get_alert_manager
 from ..db.database import async_session
 from ..db.models import SensorData
 from ..metrics.prometheus_metrics import update_sensor_metrics
@@ -160,12 +161,46 @@ class SensorPoller:
                 # Prometheus-Metriken aktualisieren
                 update_sensor_metrics(sensor_path, data["decoded_data"])
                 
+                # Gesundheitsindex-Alerts prüfen (nach erfolgreichem Speichern)
+                await self._check_health_alerts(sensor_path, data["decoded_data"])
+                
                 logger.debug(f"Sensordaten und Metriken aktualisiert: {sensor_path}")
                 
             except Exception as e:
                 await session.rollback()
                 logger.error(f"Fehler beim Speichern von {sensor_path}: {e}")
                 raise
+    
+    async def _check_health_alerts(self, sensor_path: str, sensor_data: Dict[str, Any]) -> None:
+        """
+        Prüft den Gesundheitsindex und sendet Alerts bei Bedarf.
+        
+        Args:
+            sensor_path: Pfad des Sensors
+            sensor_data: Aktuelle Sensordaten
+        """
+        try:
+            health_value = sensor_data.get("health")
+            if health_value is None:
+                return
+            
+            # Konvertiere zu Float (air-Q kann Arrays zurückgeben)
+            if isinstance(health_value, list):
+                health_value = float(health_value[0])
+            else:
+                health_value = float(health_value)
+            
+            alert_manager = get_alert_manager()
+            
+            if health_value < settings.health_alert_threshold:
+                await alert_manager.send_health_alert(sensor_path, health_value)
+            else:
+                await alert_manager.send_health_recovery(sensor_path, health_value)
+                
+        except (ValueError, TypeError, IndexError) as e:
+            logger.debug(f"Ungültiger Gesundheitsindex für {sensor_path}: {e}")
+        except Exception as e:
+            logger.error(f"Fehler bei Health-Alert-Prüfung für {sensor_path}: {e}")
     
     async def poll_single_sensor(self, sensor_path: str) -> bool:
         """
@@ -290,6 +325,13 @@ class SensorPoller:
             except asyncio.CancelledError:
                 pass
             logger.info("Sensor-Polling gestoppt")
+        
+        # Alert Manager bereinigen
+        try:
+            from .notifications import cleanup_alert_manager
+            await cleanup_alert_manager()
+        except Exception as e:
+            logger.error(f"Fehler beim Bereinigen des Alert Managers: {e}")
 
 
 # Globale Poller-Instanz

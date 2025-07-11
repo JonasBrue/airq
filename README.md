@@ -13,6 +13,7 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
 - 📊 **REST API**: Flexible Abfrage- und Filtermöglichkeiten für Sensordaten
 - 🤖 **MCP Server**: MCP Integration für natürliche Sprachabfragen
 - 📈 **Monitoring**: Prometheus-Metriken und Grafana-Dashboards
+- 🚨 **Telegram Alerts**: Automatische Benachrichtigungen bei kritischen Luftqualitätswerten
 - 🗄️ **Datenspeicherung**: Robuste PostgreSQL-Datenbank mit optimierten Indizes
 - 🐳 **Container-Ready**: Vollständige Docker-Compose-Umgebung
 
@@ -66,6 +67,12 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
    AIRQ_HOST=123.456.789.0              # IP-Adresse Ihres air-Q Sensors
    AIRQ_PASSWORD=ihr_airq_passwort      # air-Q Entschlüsselungspasswort
    AIRQ_SENSORS=/livingroom,/bedroom    # Komma-getrennte Sensor-Pfade
+   
+   # Telegram Alerting (optional)
+   TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890
+   TELEGRAM_CHAT_ID=123456789
+   HEALTH_ALERT_THRESHOLD=500
+   ALERT_COOLDOWN_MINUTES=30
    ```
 
 3. **System starten**
@@ -86,6 +93,51 @@ Nach dem Start können Sie die Services unter folgenden URLs erreichen:
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin123)
 - **Prometheus**: http://localhost:9090
 - **Health Check**: http://localhost:8000/sensors/health
+
+## 🚨 Telegram Alerts
+
+Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der Gesundheitsindex unter einen kritischen Wert fällt.
+
+### Telegram Bot einrichten
+
+1. **Bot erstellen**
+   - Schreibe eine Nachricht an [@BotFather](https://t.me/BotFather)
+   - Sende `/newbot` und folge den Anweisungen
+   - Notiere dir den Bot-Token
+
+2. **Chat-ID ermitteln**
+   - Schreibe eine Nachricht an deinen Bot
+   - Schreibe eine Nachricht an [@userinfobot](https://t.me/userinfobot)
+   - Notiere dir deine Chat-ID
+
+3. **Konfiguration**
+   ```env
+   TELEGRAM_BOT_TOKEN=dein_bot_token
+   TELEGRAM_CHAT_ID=deine_chat_id
+   HEALTH_ALERT_THRESHOLD=500
+   ALERT_COOLDOWN_MINUTES=30
+   ```
+
+### Alert-Funktionen
+
+- **Warnung**: Benachrichtigung wenn Gesundheitsindex unter Schwellenwert fällt
+- **Entwarnung**: Automatische Nachricht wenn sich die Luftqualität wieder verbessert
+- **Rate Limiting**: Verhindert Spam durch Cooldown-Perioden (Standard: 30 Minuten)
+- **Markdown-Formatierung**: Übersichtliche Darstellung mit Emojis und Formatierung
+
+### Beispiel-Nachricht
+
+```
+🚨 Luftqualitäts-Warnung
+
+Sensor: /livingroom
+Gesundheitsindex: 485/1000
+Schwellenwert: 500
+
+Die Luftqualität ist unter den kritischen Wert gefallen!
+
+Zeitpunkt: 15.12.2024 14:30:25
+```
 
 ## 🤖 MCP Server
 
@@ -174,6 +226,15 @@ Das vorkonfigurierte Grafana-Dashboard zeigt:
 - **Gesundheitsindex**: air-Q Gesundheitsbewertung
 - **System-Metriken**: Datenverarbeitungsraten und Status
 
+### Branding
+
+In der kostenlosen Edition sind nur begrenzte Anpassungen möglich:
+
+- **Organisation-Name**: Änderbar über die Grafana-Einstellungen
+- **Dashboard-Titel**: Individuelle Dashboard-Namen
+- **Benutzer-Profile**: Anpassbare Benutzer-Namen und -Einstellungen
+- **Zeitzone**: Benutzer-spezifische Zeitzone-Einstellungen
+
 ## ⚙️ Konfiguration
 
 ### Umgebungsvariablen
@@ -186,6 +247,10 @@ Das vorkonfigurierte Grafana-Dashboard zeigt:
 | `POLL_INTERVAL_SECONDS` | Polling-Intervall | `1.5` | `2.0` |
 | `DATABASE_URL` | PostgreSQL-Verbindung | Auto | `postgresql+asyncpg://...` |
 | `LOG_LEVEL` | Log-Level | `INFO` | `DEBUG` |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (optional) | - | `1234567890:ABC...` |
+| `TELEGRAM_CHAT_ID` | Telegram Chat ID (optional) | - | `123456789` |
+| `HEALTH_ALERT_THRESHOLD` | Gesundheitsindex-Schwellenwert | `500` | `500` |
+| `ALERT_COOLDOWN_MINUTES` | Alert-Cooldown in Minuten | `30` | `30` |
 
 ## 🔧 Entwicklung
 

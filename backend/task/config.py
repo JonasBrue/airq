@@ -6,7 +6,7 @@ für eine bessere Wartbarkeit und Typsicherheit.
 """
 
 import os
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, field_validator
 from dotenv import load_dotenv
@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO")
     
+    # Telegram Alerting Configuration
+    telegram_bot_token: Optional[str] = Field(default=None)
+    telegram_chat_id: Optional[str] = Field(default=None)
+    health_alert_threshold: int = Field(default=100)
+    alert_cooldown_minutes: int = Field(default=30)
+    
     @field_validator('airq_sensors')
     def parse_sensors(cls, v: str) -> List[str]:
         """Konvertiert die Sensor-String-Liste in eine echte Liste."""
@@ -55,6 +61,11 @@ class Settings(BaseSettings):
         if not v.strip():
             raise ValueError("AIRQ_PASSWORD ist erforderlich")
         return v.strip()
+    
+    @property
+    def telegram_enabled(self) -> bool:
+        """Prüft ob Telegram-Alerting aktiviert ist."""
+        return bool(self.telegram_bot_token and self.telegram_chat_id)
     
     model_config = SettingsConfigDict(
         env_file=".env",
