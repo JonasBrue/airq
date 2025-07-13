@@ -73,6 +73,7 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
    TELEGRAM_CHAT_ID=123456789
    HEALTH_ALERT_THRESHOLD=500
    ALERT_COOLDOWN_MINUTES=30
+   MIN_CONSECUTIVE_POLLS=10
    ```
 
 3. **System starten**
@@ -116,6 +117,7 @@ Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der G
    TELEGRAM_CHAT_ID=deine_chat_id
    HEALTH_ALERT_THRESHOLD=500
    ALERT_COOLDOWN_MINUTES=30
+   MIN_CONSECUTIVE_POLLS=10
    ```
 
 ### Alert-Funktionen
@@ -123,7 +125,16 @@ Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der G
 - **Warnung**: Benachrichtigung wenn Gesundheitsindex unter Schwellenwert fällt
 - **Entwarnung**: Automatische Nachricht wenn sich die Luftqualität wieder verbessert
 - **Rate Limiting**: Verhindert Spam durch Cooldown-Perioden (Standard: 30 Minuten)
+- **Konsekutive Messwerte**: Erfordert mehrere aufeinanderfolgende niedrige Werte bevor Alert gesendet wird (Standard: 10 Polls)
 - **Markdown-Formatierung**: Übersichtliche Darstellung mit Emojis und Formatierung
+
+### Konfigurationsmöglichkeiten
+
+- **`HEALTH_ALERT_THRESHOLD`**: Schwellenwert für den Gesundheitsindex (Standard: 100)
+- **`ALERT_COOLDOWN_MINUTES`**: Wartezeit zwischen gleichartigen Alerts (Standard: 30 Minuten)
+- **`MIN_CONSECUTIVE_POLLS`**: Anzahl aufeinanderfolgender niedriger Messwerte bevor Alert gesendet wird (Standard: 10)
+
+Das System verhindert Fehlalarme durch einzelne Ausreißer-Werte, indem es nur nach mehreren konsekutiven niedrigen Messwerten einen Alert sendet. Sobald ein Messwert wieder über dem Schwellenwert liegt, wird der Zähler zurückgesetzt.
 
 ### Beispiel-Nachricht
 
@@ -134,9 +145,7 @@ Sensor: /livingroom
 Gesundheitsindex: 485/1000
 Schwellenwert: 500
 
-Die Luftqualität ist unter den kritischen Wert gefallen!
-
-Zeitpunkt: 15.12.2024 14:30:25
+Die Luftqualität ist nach 10 konsekutiven Messungen unter den kritischen Wert gefallen!
 ```
 
 ## 🤖 MCP Server
@@ -294,6 +303,7 @@ backend/
 │   └── models.py
 ├── task/                # Background Tasks
 │   ├── config.py
+│   ├── notifications.py
 │   └── poller.py
 └── metrics/             # Prometheus Metriken
     └── prometheus_metrics.py

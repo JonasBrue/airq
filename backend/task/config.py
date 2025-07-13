@@ -38,8 +38,9 @@ class Settings(BaseSettings):
     # Telegram Alerting Configuration
     telegram_bot_token: Optional[str] = Field(default=None)
     telegram_chat_id: Optional[str] = Field(default=None)
-    health_alert_threshold: int = Field(default=100)
+    health_alert_threshold: int = Field(default=500)
     alert_cooldown_minutes: int = Field(default=30)
+    min_consecutive_polls: int = Field(default=10)
     
     @field_validator('airq_sensors')
     def parse_sensors(cls, v: str) -> List[str]:

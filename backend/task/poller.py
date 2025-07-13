@@ -100,6 +100,8 @@ class SensorPoller:
         self.retry_delay = 5.0  # Sekunden
         self._running = False
         self._task: Optional[asyncio.Task[None]] = None
+        self._status_log_counter = 0  # Für periodisches Status-Logging
+        self._cleanup_counter = 0  # Für periodische Bereinigung
     
     async def fetch_sensor_data(self, sensor_path: str) -> Dict[str, Any]:
         """
@@ -195,6 +197,7 @@ class SensorPoller:
             if health_value < settings.health_alert_threshold:
                 await alert_manager.send_health_alert(sensor_path, health_value)
             else:
+                # Prüfe ob Entwarnung gesendet werden muss
                 await alert_manager.send_health_recovery(sensor_path, health_value)
                 
         except (ValueError, TypeError, IndexError) as e:
@@ -259,6 +262,21 @@ class SensorPoller:
             f"Polling-Durchlauf abgeschlossen: {successful}/{len(self.sensors)} "
             f"Sensoren erfolgreich in {duration:.2f}s"
         )
+        
+        # Periodisches Status-Logging und Bereinigung
+        alert_manager = get_alert_manager()
+        
+        # Status alle 100 Zyklen loggen (ca. alle 2.5 Minuten bei 1.5s Intervall)
+        self._status_log_counter += 1
+        if self._status_log_counter >= 100:
+            alert_manager.log_status()
+            self._status_log_counter = 0
+        
+        # Bereinigung alle 1000 Zyklen (ca. alle 25 Minuten bei 1.5s Intervall)
+        self._cleanup_counter += 1
+        if self._cleanup_counter >= 1000:
+            alert_manager.cleanup_old_data()
+            self._cleanup_counter = 0
     
     async def run(self) -> None:
         """

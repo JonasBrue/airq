@@ -8,7 +8,7 @@ Luftqualitätswerten über verschiedene Kanäle (Telegram, etc.).
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Any
 import httpx
 from zoneinfo import ZoneInfo
 
@@ -30,7 +30,15 @@ class AlertManager:
         """Initialisiert den Alert Manager."""
         self.last_alerts: Dict[str, datetime] = {}
         self.active_alerts: Set[str] = set()
+        self.consecutive_low_readings: Dict[str, int] = {}
+        self.consecutive_high_readings: Dict[str, int] = {}
         self.http_client: Optional[httpx.AsyncClient] = None
+        
+        # Logge Konfiguration beim Start
+        logger.info(f"Alert Manager initialisiert - Min consecutive polls: {settings.min_consecutive_polls}, "
+                   f"Health threshold: {settings.health_alert_threshold}, "
+                   f"Cooldown: {settings.alert_cooldown_minutes}min, "
+                   f"Telegram: {'enabled' if settings.telegram_enabled else 'disabled'}")
     
     async def _get_http_client(self) -> httpx.AsyncClient:
         """Lazy-loading des HTTP-Clients."""
@@ -100,13 +108,19 @@ class AlertManager:
                 logger.error(f"Telegram API Fehler: {response.status_code} - {response.text}")
                 return False
                 
+        except httpx.TimeoutException:
+            logger.error("Telegram-Nachricht: Timeout beim Senden")
+            return False
+        except httpx.ConnectError:
+            logger.error("Telegram-Nachricht: Verbindungsfehler")
+            return False
         except Exception as e:
-            logger.error(f"Fehler beim Senden der Telegram-Nachricht: {e}")
+            logger.error(f"Unerwarteter Fehler beim Senden der Telegram-Nachricht: {e}")
             return False
     
     async def send_health_alert(self, sensor_path: str, health_index: float) -> bool:
         """
-        Sendet einen Gesundheitsindex-Alert.
+        Sendet einen Gesundheitsindex-Alert nach erforderlicher Anzahl konsekutiver niedriger Messwerte.
         
         Args:
             sensor_path: Pfad des betroffenen Sensors
@@ -117,9 +131,28 @@ class AlertManager:
         """
         alert_key = self._get_alert_key(sensor_path, "health_low")
         
-        # Prüfe Cooldown
+        # Setze Zähler für konsekutive hohe Messwerte zurück
+        old_high_count = self.consecutive_high_readings.get(sensor_path, 0)
+        self.consecutive_high_readings[sensor_path] = 0
+        if old_high_count > 0:
+            logger.info(f"High readings counter zurückgesetzt für {sensor_path}: {old_high_count} -> 0")
+        
+        # Erhöhe Zähler für konsekutive niedrige Messwerte
+        current_count = self.consecutive_low_readings.get(sensor_path, 0)
+        self.consecutive_low_readings[sensor_path] = current_count + 1
+        new_count = self.consecutive_low_readings[sensor_path]
+        
+        # Logge immer den aktuellen Stand
+        logger.info(f"Health Alert Counter für {sensor_path}: {new_count}/{settings.min_consecutive_polls} (Health: {health_index}, Threshold: {settings.health_alert_threshold})")
+        
+        # Prüfe ob genug konsekutive niedrige Messwerte erreicht wurden
+        if new_count < settings.min_consecutive_polls:
+            logger.debug(f"Noch {settings.min_consecutive_polls - new_count} konsekutive niedrige Messwerte nötig für {sensor_path}")
+            return False
+        
+        # Prüfe Cooldown nur wenn wir bereit sind zu senden
         if self._is_cooldown_active(alert_key):
-            logger.debug(f"Health Alert für {sensor_path} im Cooldown")
+            logger.info(f"Health Alert für {sensor_path} im Cooldown, überspringe (Counter bleibt bei {new_count})")
             return False
         
         # Erstelle Alert-Nachricht
@@ -130,14 +163,16 @@ class AlertManager:
         
         if success:
             self._mark_alert_sent(alert_key)
-            logger.warning(f"Health Alert gesendet für {sensor_path}: {health_index}")
+            logger.warning(f"Health Alert gesendet für {sensor_path}: {health_index} (nach {new_count} konsekutiven niedrigen Messwerten)")
             return True
+        else:
+            logger.error(f"Fehler beim Senden des Health Alerts für {sensor_path}")
         
         return False
     
     async def send_health_recovery(self, sensor_path: str, health_index: float) -> bool:
         """
-        Sendet eine Entwarnung wenn sich der Gesundheitsindex erholt hat.
+        Sendet eine Entwarnung wenn sich der Gesundheitsindex nach erforderlicher Anzahl konsekutiver guter Messwerte erholt hat.
         
         Args:
             sensor_path: Pfad des betroffenen Sensors
@@ -148,8 +183,28 @@ class AlertManager:
         """
         alert_key = self._get_alert_key(sensor_path, "health_low")
         
+        # Setze Zähler für konsekutive niedrige Messwerte zurück
+        old_low_count = self.consecutive_low_readings.get(sensor_path, 0)
+        self.consecutive_low_readings[sensor_path] = 0
+        if old_low_count > 0:
+            logger.info(f"Low readings counter zurückgesetzt für {sensor_path}: {old_low_count} -> 0")
+        
+        # Erhöhe Zähler für konsekutive hohe Messwerte
+        current_high_count = self.consecutive_high_readings.get(sensor_path, 0)
+        self.consecutive_high_readings[sensor_path] = current_high_count + 1
+        new_high_count = self.consecutive_high_readings[sensor_path]
+        
+        # Logge immer den aktuellen Stand
+        logger.info(f"Health Recovery Counter für {sensor_path}: {new_high_count}/{settings.min_consecutive_polls} (Health: {health_index}, Threshold: {settings.health_alert_threshold})")
+        
+        # Prüfe ob genug konsekutive hohe Messwerte erreicht wurden
+        if new_high_count < settings.min_consecutive_polls:
+            logger.debug(f"Noch {settings.min_consecutive_polls - new_high_count} konsekutive hohe Messwerte nötig für Recovery von {sensor_path}")
+            return False
+        
         # Nur senden wenn vorher ein Alert aktiv war
         if alert_key not in self.active_alerts:
+            logger.debug(f"Kein aktiver Alert für {sensor_path}, überspringe Recovery (Counter bleibt bei {new_high_count})")
             return False
         
         # Entferne Alert aus aktiver Liste
@@ -162,10 +217,92 @@ class AlertManager:
         success = await self.send_telegram_message(message)
         
         if success:
-            logger.info(f"Health Recovery gesendet für {sensor_path}: {health_index}")
+            logger.info(f"Health Recovery gesendet für {sensor_path}: {health_index} (nach {new_high_count} konsekutiven hohen Messwerten)")
             return True
+        else:
+            logger.error(f"Fehler beim Senden der Health Recovery für {sensor_path}")
+            # Alert wieder als aktiv markieren bei Sendefehler
+            self.active_alerts.add(alert_key)
         
         return False
+    
+    def reset_consecutive_low_readings(self, sensor_path: str) -> None:
+        """
+        Setzt den Zähler für konsekutive niedrige Messwerte zurück.
+        
+        Args:
+            sensor_path: Pfad des betroffenen Sensors
+        """
+        old_count = self.consecutive_low_readings.get(sensor_path, 0)
+        self.consecutive_low_readings[sensor_path] = 0
+        if old_count > 0:
+            logger.info(f"Low readings counter zurückgesetzt für {sensor_path}: {old_count} -> 0")
+    
+    def reset_consecutive_high_readings(self, sensor_path: str) -> None:
+        """
+        Setzt den Zähler für konsekutive hohe Messwerte zurück.
+        
+        Args:
+            sensor_path: Pfad des betroffenen Sensors
+        """
+        old_count = self.consecutive_high_readings.get(sensor_path, 0)
+        self.consecutive_high_readings[sensor_path] = 0
+        if old_count > 0:
+            logger.info(f"High readings counter zurückgesetzt für {sensor_path}: {old_count} -> 0")
+    
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Gibt den aktuellen Status aller Counter und aktiven Alerts zurück.
+        
+        Returns:
+            Dictionary mit Status-Informationen
+        """
+        return {
+            "consecutive_low_readings": dict(self.consecutive_low_readings),
+            "consecutive_high_readings": dict(self.consecutive_high_readings),
+            "active_alerts": list(self.active_alerts),
+            "last_alerts": {k: v.isoformat() for k, v in self.last_alerts.items()},
+            "config": {
+                "min_consecutive_polls": settings.min_consecutive_polls,
+                "health_alert_threshold": settings.health_alert_threshold,
+                "alert_cooldown_minutes": settings.alert_cooldown_minutes,
+                "telegram_enabled": settings.telegram_enabled
+            }
+        }
+    
+    def log_status(self) -> None:
+        """Loggt den aktuellen Status des Alert-Systems."""
+        status = self.get_status()
+        logger.info(f"Alert Manager Status: {status}")
+    
+    def cleanup_old_data(self) -> None:
+        """
+        Bereinigt alte Daten aus den Countern und Alert-Listen.
+        
+        Entfernt Counter für Sensoren, die nicht mehr in der Konfiguration stehen,
+        und alte Alert-Einträge, die länger als das doppelte Cooldown-Intervall zurückliegen.
+        """
+        configured_sensors = set(settings.airq_sensors)
+        
+        # Entferne Counter für nicht mehr konfigurierte Sensoren
+        old_low_sensors = set(self.consecutive_low_readings.keys()) - configured_sensors
+        old_high_sensors = set(self.consecutive_high_readings.keys()) - configured_sensors
+        
+        for sensor in old_low_sensors:
+            del self.consecutive_low_readings[sensor]
+            logger.info(f"Bereinigt low readings counter für entfernten Sensor: {sensor}")
+        
+        for sensor in old_high_sensors:
+            del self.consecutive_high_readings[sensor]
+            logger.info(f"Bereinigt high readings counter für entfernten Sensor: {sensor}")
+        
+        # Entferne sehr alte Alert-Einträge (älter als doppeltes Cooldown-Intervall)
+        cutoff_time = datetime.now(ZoneInfo("Europe/Berlin")) - timedelta(minutes=settings.alert_cooldown_minutes * 2)
+        old_alerts = [key for key, timestamp in self.last_alerts.items() if timestamp < cutoff_time]
+        
+        for alert_key in old_alerts:
+            del self.last_alerts[alert_key]
+            logger.debug(f"Bereinigt alten Alert-Eintrag: {alert_key}")
     
     def _format_health_alert(self, sensor_path: str, health_index: float) -> str:
         """Formatiert eine Gesundheitsindex-Warnung."""
@@ -175,7 +312,7 @@ class AlertManager:
 **Gesundheitsindex:** {health_index:.0f}/1000
 **Schwellenwert:** {settings.health_alert_threshold}
 
-Die Luftqualität ist unter den kritischen Wert gefallen!"""
+Die Luftqualität ist nach {settings.min_consecutive_polls} konsekutiven Messungen unter den kritischen Wert gefallen!"""
     
     def _format_health_recovery(self, sensor_path: str, health_index: float) -> str:
         """Formatiert eine Entwarnung."""
@@ -185,7 +322,7 @@ Die Luftqualität ist unter den kritischen Wert gefallen!"""
 **Gesundheitsindex:** {health_index:.0f}/1000
 **Schwellenwert:** {settings.health_alert_threshold}
 
-Die Luftqualität hat sich wieder normalisiert."""
+Die Luftqualität hat sich nach {settings.min_consecutive_polls} konsekutiven Messungen wieder normalisiert."""
 
 
 # Globale Alert Manager Instanz
