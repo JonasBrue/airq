@@ -8,16 +8,20 @@ und stellt sie über eine REST-API zur Verfügung.
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+from datetime import datetime
+import io
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .api import router as sensor_router
 from .task import start_poller, stop_poller
-from .db import init_db, close_db
+from .db import init_db, close_db, get_session
 from .config import settings
 from .metrics.prometheus_metrics import get_prometheus_metrics, get_content_type
+from .reports import AirQualityPDFGenerator
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -149,8 +153,67 @@ async def read_root() -> dict[str, str]:
         "message": "air-Q Backend API",
         "version": settings.api_version,
         "docs": "/docs",
-        "health": "/sensors/health"
+        "health": "/sensors/health",
+        "report": "/report"
     }
+
+
+@app.get(
+    "/report",
+    tags=["reports"],
+    summary="PDF-Bericht generieren",
+    description="Generiert einen umfassenden PDF-Bericht mit Luftqualitätsdaten und Statistiken."
+)
+async def generate_pdf_report(
+    session: AsyncSession = Depends(get_session)
+) -> StreamingResponse:
+    """
+    Generiert einen PDF-Bericht mit Luftqualitätsdaten.
+    
+    Der Bericht enthält:
+    - Übersichtsseite mit Gesamtstatistiken
+    - Detailseiten für jeden Sensor
+    - Zeitverlaufsdaten und Analysen
+    
+    Args:
+        session: Datenbank-Session (automatisch injiziert)
+        
+    Returns:
+        StreamingResponse: PDF-Datei als Download
+        
+    Raises:
+        HTTPException: Bei Fehlern während der Berichtsgenerierung
+    """
+    try:
+        # PDF-Generator erstellen
+        pdf_generator = AirQualityPDFGenerator(session)
+        
+        # PDF in Memory-Buffer generieren
+        output_buffer = io.BytesIO()
+        await pdf_generator.generate_report(output_buffer)
+        
+        # Buffer zurücksetzen für das Lesen
+        output_buffer.seek(0)
+        
+        # Aktueller Zeitstempel für Dateiname
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"airq_report_{timestamp}.pdf"
+        
+        # PDF als StreamingResponse zurückgeben
+        return StreamingResponse(
+            io.BytesIO(output_buffer.read()),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Fehler bei PDF-Generierung: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fehler bei der PDF-Berichtsgenerierung"
+        ) from e
 
 
 if __name__ == "__main__":
