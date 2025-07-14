@@ -109,23 +109,23 @@ class MetricRegistry:
     
     METRICS = {
         'temperature': MetricDefinition('Temperatur', '°C', 'Raumtemperatur in °C'),
-        'humidity': MetricDefinition('Luftfeuchtigkeit', '%', 'Relative Feuchtigkeit in %'),
+        'humidity': MetricDefinition('Feuchtigkeit', '%', 'Relative Feuchtigkeit in %'),
         'co2': MetricDefinition('CO2', 'ppm', 'Kohlendioxid-Konzentration in ppm', 0),
         'pressure': MetricDefinition('Luftdruck', 'hPa', 'Absoluter Druck in hPa'),
-        'health': MetricDefinition('Gesundheitsindex', '', 'Bewertung 0-1000', 0),
+        'health': MetricDefinition('Gesund.-Index', '', 'Bewertung 0-1000', 0),
         'dewpt': MetricDefinition('Taupunkt', '°C', 'Kondensationstemperatur in °C'),
-        'humidity_abs': MetricDefinition('Abs. Luftfeuchtigkeit', 'g/m³', 'Wasserdampf in g/m³'),
+        'humidity_abs': MetricDefinition('Abs. Feuchtig.', 'g/m³', 'Wasserdampf in g/m³'),
         'co': MetricDefinition('CO', 'mg/m³', 'Kohlenmonoxid-Konzentration in mg/m³', 2),
-        'pm1': MetricDefinition('PM1 Feinstaub', 'µg/m³', 'Partikel <1µm in µg/m³'),
-        'pm2_5': MetricDefinition('PM2.5 Feinstaub', 'µg/m³', 'Partikel <2.5µm in µg/m³'),
-        'pm10': MetricDefinition('PM10 Feinstaub', 'µg/m³', 'Partikel <10µm in µg/m³'),
+        'pm1': MetricDefinition('PM1 FS', 'µg/m³', 'Feinstaub Partikel <1µm in µg/m³'),
+        'pm2_5': MetricDefinition('PM2.5 FS', 'µg/m³', 'Feinstaub Partikel <2.5µm in µg/m³'),
+        'pm10': MetricDefinition('PM10 FS', 'µg/m³', 'Feinstaub Partikel <10µm in µg/m³'),
         'TypPS': MetricDefinition('Partikelgröße', 'µm', 'Durchschnittsgröße in µm'),
         'no2': MetricDefinition('NO2', 'ppm', 'Stickstoffdioxid-Konz. in ppm', 0),
         'h2s': MetricDefinition('H2S', 'µg/m³', 'Schwefelwasserstoff-Konzentration in µg/m³'),
         'o3': MetricDefinition('O3', 'µg/m³', 'Ozon-Konzentration in µg/m³'),
         'tvoc': MetricDefinition('TVOC', 'ppb', 'Flüchtige org. Verbindungen in ppb', 0),
         'oxygen': MetricDefinition('Sauerstoff', 'Vol.-%', 'O2-Konzentration in Vol.-%'),
-        'sound': MetricDefinition('Geräuschpegel', 'dB(A)', 'Lärm in dB(A)'),
+        'sound': MetricDefinition('Geräusche', 'dB(A)', 'Lärm in dB(A)'),
     }
     
     # Metrik-Gruppen
@@ -696,7 +696,7 @@ class AirQualityPDFGenerator:
             return []
         
         # Tabelle-Header
-        headers = ['Zeitstempel'] + [MetricRegistry.get_definition(m).title for m in display_metrics]
+        headers = ['Zeit'] + [MetricRegistry.get_definition(m).title for m in display_metrics]
         table_data = [headers]
         
         # Daten für jede Zeile
@@ -749,7 +749,7 @@ class AirQualityPDFGenerator:
         
         # Zweite Tabelle mit restlichen Metriken
         if num_metrics > LayoutConstants.TABLE_SPLIT_THRESHOLD:
-            second_headers = ['Zeitstempel'] + headers[LayoutConstants.TABLE_SPLIT_THRESHOLD + 1:]
+            second_headers = ['Zeit'] + headers[LayoutConstants.TABLE_SPLIT_THRESHOLD + 1:]
             second_data = [second_headers]
             for row in table_data[1:]:
                 second_row = [row[0]] + row[LayoutConstants.TABLE_SPLIT_THRESHOLD + 1:]
