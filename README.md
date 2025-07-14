@@ -71,7 +71,7 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
    # Telegram Alerting (optional)
    TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890
    TELEGRAM_CHAT_ID=123456789
-   HEALTH_ALERT_THRESHOLD=500
+   HEALTH_ALERT_THRESHOLD=600
    ALERT_COOLDOWN_MINUTES=30
    MIN_CONSECUTIVE_POLLS=10
    ```
@@ -115,7 +115,7 @@ Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der G
    ```env
    TELEGRAM_BOT_TOKEN=dein_bot_token
    TELEGRAM_CHAT_ID=deine_chat_id
-   HEALTH_ALERT_THRESHOLD=500
+   HEALTH_ALERT_THRESHOLD=600
    ALERT_COOLDOWN_MINUTES=30
    MIN_CONSECUTIVE_POLLS=10
    ```
@@ -143,7 +143,7 @@ Das System verhindert Fehlalarme durch einzelne Ausreißer-Werte, indem es nur n
 
 Sensor: /livingroom
 Gesundheitsindex: 485/1000
-Schwellenwert: 500
+Schwellenwert: 600
 
 Die Luftqualität ist nach 10 konsekutiven Messungen unter den kritischen Wert gefallen!
 ```
@@ -253,13 +253,15 @@ In der kostenlosen Edition sind nur begrenzte Anpassungen möglich:
 | `AIRQ_HOST` | IP-Adresse des air-Q Sensors | - | `192.168.1.100` |
 | `AIRQ_PASSWORD` | Entschlüsselungspasswort | - | `airqsetup` |
 | `AIRQ_SENSORS` | Komma-getrennte Sensor-Pfade | - | `/living,/bedroom` |
-| `POLL_INTERVAL_SECONDS` | Polling-Intervall | `1.5` | `2.0` |
+| `POLL_INTERVAL_SECONDS` | Polling-Intervall | `1.5` | `1.5` |
 | `DATABASE_URL` | PostgreSQL-Verbindung | Auto | `postgresql+asyncpg://...` |
 | `LOG_LEVEL` | Log-Level | `INFO` | `DEBUG` |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (optional) | - | `1234567890:ABC...` |
 | `TELEGRAM_CHAT_ID` | Telegram Chat ID (optional) | - | `123456789` |
-| `HEALTH_ALERT_THRESHOLD` | Gesundheitsindex-Schwellenwert | `500` | `500` |
+| `HEALTH_ALERT_THRESHOLD` | Gesundheitsindex-Schwellenwert | `600` | `600` |
 | `ALERT_COOLDOWN_MINUTES` | Alert-Cooldown in Minuten | `30` | `30` |
+| `MIN_CONSECUTIVE_POLLS` | Minimale Anzahl aufeinanderfolgender Polls für einen Alarm | `10` | `10` |
+
 
 ## 🔧 Entwicklung
 
