@@ -35,7 +35,6 @@ def format_berlin_time(utc_timestamp: str) -> str:
         utc_dt = datetime.fromisoformat(timestamp_str)
         
         # Berliner Zeit = UTC + 1 oder UTC + 2 (je nach Jahreszeit)
-        # Juni = Sommerzeit = UTC + 2
         month = utc_dt.month
         
         if 4 <= month <= 9:  # April bis September = Sommerzeit

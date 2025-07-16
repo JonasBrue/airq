@@ -9,7 +9,7 @@ import io
 import logging
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any, NamedTuple
+from typing import Dict, List, Optional, Tuple, Any, NamedTuple, Union
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,6 +27,39 @@ from ..db.models import SensorData
 
 # Logger konfigurieren
 logger = logging.getLogger(__name__)
+
+def format_berlin_time(utc_datetime: Union[datetime, str]) -> str:
+    """
+    Konvertiert UTC-Zeit zu Berliner Zeit (MEZ/MESZ).
+    
+    Args:
+        utc_datetime: UTC-Zeitstempel als datetime object oder String
+    
+    Returns:
+        Formatierter Berliner Zeit-String mit Zeitzone (ohne Jahr)
+    """
+    try:
+        if isinstance(utc_datetime, str):
+            timestamp_str = utc_datetime.strip()
+            if timestamp_str.endswith('Z'):
+                timestamp_str = timestamp_str[:-1]
+            utc_dt = datetime.fromisoformat(timestamp_str)
+        else:
+            utc_dt = utc_datetime
+        
+        # Berliner Zeit = UTC + 1 oder UTC + 2 (je nach Jahreszeit)
+        month = utc_dt.month
+        
+        if 4 <= month <= 9:  # April bis September = Sommerzeit (MESZ)
+            berlin_dt = utc_dt + timedelta(hours=2)
+        else:  # Oktober bis März = Winterzeit (MEZ)
+            berlin_dt = utc_dt + timedelta(hours=1)
+        
+        return f"{berlin_dt.strftime('%d.%m %H:%M')}"
+    
+    except Exception as e:
+        # Fallback: Original-Zeitstempel
+        return str(utc_timestamp)
 
 # Layout-Konstanten
 class LayoutConstants:
@@ -63,8 +96,8 @@ class LayoutConstants:
     
     # Datenbank-Konstanten
     DEFAULT_DAYS_BACK = 30
-    MAX_RECENT_VALUES = 15
     TABLE_SPLIT_THRESHOLD = 9
+    MINUTES_TO_DISPLAY = 15
 
 
 # Farbschema
@@ -121,20 +154,19 @@ class MetricRegistry:
         'pm10': MetricDefinition('PM10 FS', 'µg/m³', 'Feinstaub Partikel <10µm in µg/m³'),
         'TypPS': MetricDefinition('Partikelgröße', 'µm', 'Durchschnittsgröße in µm'),
         'no2': MetricDefinition('NO2', 'ppm', 'Stickstoffdioxid-Konz. in ppm', 0),
-        'h2s': MetricDefinition('H2S', 'µg/m³', 'Schwefelwasserstoff-Konzentration in µg/m³'),
+        'h2s': MetricDefinition('H2S', 'µg/m³', 'Schwefelwasserstoff-Konz. in µg/m³'),
         'o3': MetricDefinition('O3', 'µg/m³', 'Ozon-Konzentration in µg/m³'),
         'tvoc': MetricDefinition('TVOC', 'ppb', 'Flüchtige org. Verbindungen in ppb', 0),
         'oxygen': MetricDefinition('Sauerstoff', 'Vol.-%', 'O2-Konzentration in Vol.-%'),
         'sound': MetricDefinition('Geräusche', 'dB(A)', 'Lärm in dB(A)'),
     }
     
-    # Metrik-Gruppen
-    MAIN_METRICS = [
+    # Alle verfügbaren Metriken in logischer Reihenfolge
+    ALL_METRICS = [
         'temperature', 'humidity', 'co2', 'pressure', 'health',
-        'pm1', 'pm2_5', 'pm10', 'TypPS', 'no2', 'h2s', 'o3', 'tvoc'
+        'pm1', 'pm2_5', 'pm10', 'TypPS', 'no2', 'h2s', 'o3', 'tvoc',
+        'dewpt', 'humidity_abs', 'co', 'oxygen', 'sound'
     ]
-    
-    OTHER_METRICS = ['dewpt', 'humidity_abs', 'co', 'oxygen', 'sound']
     
     @classmethod
     def get_definition(cls, key: str) -> MetricDefinition:
@@ -147,14 +179,13 @@ class MetricRegistry:
     
     @classmethod
     def get_available_metrics(cls, data: List[SensorData]) -> List[str]:
-        """Ermittelt verfügbare Metriken aus den Daten."""
-        all_metrics = set()
+        """Ermittelt verfügbare Metriken aus den Daten in der definierten Reihenfolge."""
+        available_in_data = set()
         for record in data:
-            all_metrics.update(record.decoded_data.keys())
+            available_in_data.update(record.decoded_data.keys())
         
-        # Filter relevante Metriken
-        relevant_metrics = list(cls.METRICS.keys())
-        return [m for m in relevant_metrics if m in all_metrics]
+        # Rückgabe in der definierten Reihenfolge von ALL_METRICS
+        return [metric for metric in cls.ALL_METRICS if metric in available_in_data]
 
 
 class SVGFlowable(Flowable):
@@ -226,7 +257,7 @@ class AirQualityPDFGenerator:
             name='CustomTitle',
             parent=self.styles['Title'],
             fontSize=20,
-            spaceAfter=LayoutConstants.STANDARD_SPACER + 10,
+            spaceAfter=LayoutConstants.STANDARD_SPACER,
             alignment=TA_CENTER,
             textColor=COLORS['dark']
         ))
@@ -262,6 +293,14 @@ class AirQualityPDFGenerator:
             fontSize=10,
             alignment=TA_CENTER,
             textColor=COLORS['dark']
+        ))
+        
+        self.styles.add(ParagraphStyle(
+            name='CenteredTimeRange',
+            parent=self.styles['Normal'],
+            fontSize=14,
+            alignment=TA_CENTER,
+            spaceAfter=LayoutConstants.STANDARD_SPACER
         ))
     
     def _get_logo_paths(self) -> Dict[str, str]:
@@ -405,25 +444,26 @@ class AirQualityPDFGenerator:
             story.append(logo_table)
             story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
         
-        # Titel und Informationen
-        story.append(Paragraph("air-Q Luftqualitätsbericht", self.styles['CustomTitle']))
-        story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
-        
-        # Zeitraum
+        # Titel mit Jahr und Monat
         time_range = data['time_range']
-        story.append(Paragraph(
-            f"Berichtszeitraum: {time_range[0].strftime('%d.%m.%Y %H:%M')} - "
-            f"{time_range[1].strftime('%d.%m.%Y %H:%M')}",
-            self.styles['Normal']
-        ))
-        story.append(Spacer(1, LayoutConstants.SMALL_SPACER))
+        start_year = time_range[0].year
+        end_year = time_range[1].year
+        start_month = time_range[0].month
+        end_month = time_range[1].month
+
+        if start_year == end_year and start_month == end_month:
+            time_display = f"{start_month:02d}/{start_year}"
+        else:
+            time_display = f"{start_month:02d}/{start_year} - {end_month:02d}/{end_year}"
         
-        # Anzahl Sensoren
+        story.append(Paragraph(f"air-Q Luftqualitätsbericht {time_display}", self.styles['CustomTitle']))
+        
+        # Zeitraum (in Berliner Zeit) - zentriert unter dem Titel
         story.append(Paragraph(
-            f"Anzahl Sensoren: {len(data['sensors'])}",
-            self.styles['Normal']
+            f"{format_berlin_time(time_range[0])} - "
+            f"{format_berlin_time(time_range[1])}",
+            self.styles['CenteredTimeRange']
         ))
-        story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
         
         # Sensor-Übersicht
         story.append(Paragraph("Sensor-Übersicht", self.styles['CustomHeading1']))
@@ -452,17 +492,34 @@ class AirQualityPDFGenerator:
             story.append(logo_table)
             story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
         
-        # Titel
-        story.append(Paragraph(f"Sensor {sensor_path} - Detailanalyse", self.styles['CustomTitle']))
-        story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
+        # Titel mit Jahr und Monat
+        time_range = data['time_range']
+        start_year = time_range[0].year
+        end_year = time_range[1].year
+        start_month = time_range[0].month
+        end_month = time_range[1].month
+
+        if start_year == end_year and start_month == end_month:
+            time_display = f"{start_month:02d}/{start_year}"
+        else:
+            time_display = f"{start_month:02d}/{start_year} - {end_month:02d}/{end_year}"
+        
+        story.append(Paragraph(f"Sensor {sensor_path} - Detailanalyse {time_display}", self.styles['CustomTitle']))
+        
+        # Berichtszeitraum (in Berliner Zeit) - zentriert unter dem Titel
+        story.append(Paragraph(
+            f"{format_berlin_time(time_range[0])} - "
+            f"{format_berlin_time(time_range[1])}",
+            self.styles['CenteredTimeRange']
+        ))
         
         # Statistiken
         story.extend(self._create_sensor_statistics(sensor_data))
         story.append(PageBreak())
 
-        # Aktuelle Messwerte
-        story.append(Paragraph("Aktuelle Messwerte", self.styles['CustomHeading2']))
-        story.extend(self._create_sensor_values_table(sensor_data[:LayoutConstants.MAX_RECENT_VALUES]))
+        # Minutenweise aggregierte Messwerte der letzten Minuten
+        story.append(Paragraph(f"Aktuelle Messwerte (letzte {LayoutConstants.MINUTES_TO_DISPLAY} Minuten)", self.styles['CustomHeading2']))
+        story.extend(self._create_sensor_values_table(sensor_data))
         
         return story
     
@@ -523,19 +580,8 @@ class AirQualityPDFGenerator:
         
         available_metrics = MetricRegistry.get_available_metrics(all_data)
         
-        # Hauptmetriken und Luftqualität
-        main_available = [m for m in MetricRegistry.MAIN_METRICS if m in available_metrics]
-        if main_available:
-            story.append(Paragraph("Hauptmetriken und Luftqualität", self.styles['CustomHeading2']))
-            story.extend(self._create_metrics_table(all_data, main_available))
-            story.append(Spacer(1, LayoutConstants.SMALL_SPACER + 5))
-        
-        # Weitere Metriken
-        other_available = [m for m in MetricRegistry.OTHER_METRICS if m in available_metrics]
-        if other_available:
-            story.append(Paragraph("Weitere Metriken", self.styles['CustomHeading2']))
-            story.extend(self._create_metrics_table(all_data, other_available))
-            story.append(Spacer(1, LayoutConstants.SMALL_SPACER + 5))
+        if available_metrics:
+            story.extend(self._create_metrics_table(all_data, available_metrics))
         
         return story
     
@@ -594,7 +640,7 @@ class AirQualityPDFGenerator:
             
             table_data.append([
                 sensor_path,
-                latest.ts_collected.strftime('%d.%m.%Y %H:%M'),
+                format_berlin_time(latest.ts_collected),
                 self._format_sensor_value(self._extract_sensor_value(decoded, 'temperature'), 'temperature'),
                 self._format_sensor_value(self._extract_sensor_value(decoded, 'humidity'), 'humidity'),
                 self._format_sensor_value(self._extract_sensor_value(decoded, 'co2'), 'co2'),
@@ -623,18 +669,9 @@ class AirQualityPDFGenerator:
         story = []
         available_metrics = MetricRegistry.get_available_metrics(sensor_data)
         
-        # Hauptmetriken und Luftqualität
-        main_available = [m for m in MetricRegistry.MAIN_METRICS if m in available_metrics]
-        if main_available:
-            story.append(Paragraph("Hauptmetriken und Luftqualität", self.styles['CustomHeading2']))
-            story.extend(self._create_sensor_metrics_table(sensor_data, main_available))
-            story.append(Spacer(1, LayoutConstants.SMALL_SPACER + 5))
-        
-        # Weitere Metriken
-        other_available = [m for m in MetricRegistry.OTHER_METRICS if m in available_metrics]
-        if other_available:
-            story.append(Paragraph("Weitere Metriken", self.styles['CustomHeading2']))
-            story.extend(self._create_sensor_metrics_table(sensor_data, other_available))
+        if available_metrics:
+            story.append(Paragraph("Sensor-Metriken", self.styles['CustomHeading2']))
+            story.extend(self._create_sensor_metrics_table(sensor_data, available_metrics))
             story.append(Spacer(1, LayoutConstants.SMALL_SPACER + 5))
         
         return story
@@ -684,33 +721,37 @@ class AirQualityPDFGenerator:
         return []
     
     def _create_sensor_values_table(self, sensor_data: List) -> List:
-        """Erstellt eine Tabelle mit aktuellen Messwerten."""
+        """Erstellt eine Tabelle mit minutenweise aggregierten Messwerten der letzten Minuten."""
         if not sensor_data:
             return []
         
         available_metrics = MetricRegistry.get_available_metrics(sensor_data)
-        display_metrics = [m for m in MetricRegistry.MAIN_METRICS + MetricRegistry.OTHER_METRICS 
-                          if m in available_metrics]
         
-        if not display_metrics:
+        if not available_metrics:
+            return []
+        
+        # Daten nach Minuten gruppieren und aggregieren
+        minute_data = self._aggregate_data_by_minute(sensor_data, available_metrics)
+        
+        if not minute_data:
             return []
         
         # Tabelle-Header
-        headers = ['Zeit'] + [MetricRegistry.get_definition(m).title for m in display_metrics]
+        headers = ['Zeit'] + [MetricRegistry.get_definition(m).title for m in available_metrics]
         table_data = [headers]
         
-        # Daten für jede Zeile
-        for record in sensor_data:
-            row = [record.ts_collected.strftime('%d.%m %H:%M')]
+        # Daten für jede Minute (chronologisch absteigend - neueste zuerst)
+        for minute_timestamp, metric_averages in minute_data:
+            row = [format_berlin_time(minute_timestamp)]
             
-            for metric in display_metrics:
-                value = self._extract_sensor_value(record.decoded_data, metric)
-                row.append(self._format_sensor_value(value, metric))
+            for metric in available_metrics:
+                avg_value = metric_averages.get(metric)
+                row.append(self._format_sensor_value(avg_value, metric))
             
             table_data.append(row)
         
         if len(table_data) > 1:
-            num_metrics = len(display_metrics)
+            num_metrics = len(available_metrics)
             
             # Dynamische Spaltenbreiten
             if num_metrics <= 4:
@@ -728,6 +769,52 @@ class AirQualityPDFGenerator:
                 return [table]
         
         return []
+    
+    def _aggregate_data_by_minute(self, sensor_data: List, available_metrics: List[str]) -> List[Tuple[datetime, Dict[str, float]]]:
+        """
+        Aggregiert Sensor-Daten nach Minuten und berechnet Durchschnittswerte.
+        
+        Args:
+            sensor_data: Liste der Sensor-Datensätze
+            available_metrics: Liste der verfügbaren Metriken
+            
+        Returns:
+            Liste von Tupeln (minute_timestamp, metric_averages) für die letzten konfigurierten Minuten,
+            sortiert chronologisch absteigend (neueste zuerst)
+        """
+        from collections import defaultdict
+        
+        # Gruppierung nach Minuten
+        minute_groups = defaultdict(lambda: defaultdict(list))
+        
+        for record in sensor_data:
+            # Zeitstempel auf Minute runden (Sekunden auf 0 setzen)
+            minute_timestamp = record.ts_collected.replace(second=0, microsecond=0)
+            
+            for metric in available_metrics:
+                value = self._extract_sensor_value(record.decoded_data, metric)
+                if value is not None:
+                    minute_groups[minute_timestamp][metric].append(value)
+        
+        # Durchschnittswerte berechnen und sortieren
+        aggregated_data = []
+        for minute_timestamp, metrics_data in minute_groups.items():
+            metric_averages = {}
+            
+            for metric in available_metrics:
+                values = metrics_data.get(metric, [])
+                if values:
+                    metric_averages[metric] = sum(values) / len(values)
+                else:
+                    metric_averages[metric] = None
+            
+            aggregated_data.append((minute_timestamp, metric_averages))
+        
+        # Nach Zeitstempel absteigend sortieren (neueste zuerst)
+        aggregated_data.sort(key=lambda x: x[0], reverse=True)
+        
+        # Nur die konfigurierten Anzahl Minuten zurückgeben
+        return aggregated_data[:LayoutConstants.MINUTES_TO_DISPLAY]
     
     def _create_split_table(self, table_data: List[List], headers: List[str], num_metrics: int) -> List:
         """Erstellt geteilte Tabellen wenn zu viele Spalten vorhanden sind."""
