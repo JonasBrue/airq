@@ -11,12 +11,18 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any, NamedTuple, Union
 from dataclasses import dataclass
+import tempfile
 
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.figure import Figure
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.colors import HexColor
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
 from reportlab.platypus.flowables import Flowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib import colors
@@ -98,6 +104,256 @@ class LayoutConstants:
     DEFAULT_DAYS_BACK = 30
     TABLE_SPLIT_THRESHOLD = 9
     MINUTES_TO_DISPLAY = 15
+    
+    # Chart-Konstanten
+    CHART_WIDTH = 12
+    CHART_HEIGHT = 6
+    CHART_DPI = 300
+    CHART_HOURS_WINDOW = 24  # Anzahl Stunden für Detailcharts
+
+
+class ChartGenerator:
+    """Generator für Diagramme der Sensor-Daten."""
+    
+    def __init__(self):
+        # Deutsche Lokalisierung für Matplotlib
+        plt.rcParams['font.family'] = 'DejaVu Sans'
+        plt.rcParams['font.size'] = 10
+        plt.rcParams['figure.facecolor'] = 'white'
+        plt.rcParams['axes.facecolor'] = 'white'
+        plt.rcParams['axes.grid'] = True
+        plt.rcParams['grid.alpha'] = 0.3
+        plt.rcParams['axes.spines.top'] = False
+        plt.rcParams['axes.spines.right'] = False
+        
+        # Farben für verschiedene Sensoren
+        self.sensor_colors = [
+            '#2E86AB', '#A23B72', '#F18F01', '#C73E1D', 
+            '#1B9E77', '#D95F02', '#7570B3', '#E7298A'
+        ]
+    
+    def create_time_series_chart(self, data_by_sensor: Dict[str, List], 
+                                metric_key: str, 
+                                time_range: Tuple[datetime, datetime],
+                                chart_type: str = "overview") -> str:
+        """
+        Erstellt ein Zeitreihen-Diagramm für eine Metrik.
+        
+        Args:
+            data_by_sensor: Dictionary mit Sensor-Pfad als Key und Liste der SensorData als Werte
+            metric_key: Key der Metrik (z.B. 'temperature', 'co2')
+            time_range: Tuple mit Start- und End-Zeitpunkt
+            chart_type: 'overview' für kompletten Zeitraum oder 'detail' für letzten Tag
+        
+        Returns:
+            Pfad zur gespeicherten Chart-Datei
+        """
+        metric_def = MetricRegistry.get_definition(metric_key)
+        
+        # Figure erstellen
+        fig, ax = plt.subplots(figsize=(LayoutConstants.CHART_WIDTH, LayoutConstants.CHART_HEIGHT))
+        
+        has_data = False
+        
+        for i, (sensor_path, sensor_data) in enumerate(data_by_sensor.items()):
+            if not sensor_data:
+                continue
+                
+            # Zeitpunkte und Werte extrahieren
+            timestamps = []
+            values = []
+            
+            for record in reversed(sensor_data):  # Chronologisch sortieren
+                value = self._extract_sensor_value(record.decoded_data, metric_key)
+                if value is not None:
+                    # Filterung nach chart_type
+                    if chart_type == "detail":
+                        # Nur letzten Tag anzeigen
+                        if record.ts_collected >= time_range[1] - timedelta(hours=LayoutConstants.CHART_HOURS_WINDOW):
+                            timestamps.append(record.ts_collected)
+                            values.append(value)
+                    else:
+                        timestamps.append(record.ts_collected)
+                        values.append(value)
+            
+            if timestamps and values:
+                has_data = True
+                color = self.sensor_colors[i % len(self.sensor_colors)]
+                
+                ax.plot(timestamps, values, 
+                       label=sensor_path, 
+                       color=color, 
+                       linewidth=2,
+                       alpha=0.8)
+        
+        if not has_data:
+            ax.text(0.5, 0.5, 'Keine Daten verfügbar', 
+                   transform=ax.transAxes, ha='center', va='center', 
+                   fontsize=14, alpha=0.5)
+        
+        # Achsen formatieren
+        ax.set_title(f'{metric_def.title} ({metric_def.description}) - {"Letzte 24 Stunden" if chart_type == "detail" else "Übersicht"}', 
+                    fontsize=14, fontweight='bold', pad=20)
+        ax.set_ylabel(f'{metric_def.title} ({metric_def.unit})')
+        
+        # Zeitachse formatieren
+        if chart_type == "detail":
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=2))
+        else:
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m'))
+            ax.xaxis.set_major_locator(mdates.DayLocator(interval=max(1, len(timestamps) // 10)))
+        
+        plt.setp(ax.xaxis.get_majorticklabels(), rotation=45)
+        
+        # Legend
+        if len(data_by_sensor) > 1 and has_data:
+            ax.legend(loc='upper right', framealpha=0.9)
+        
+        # Layout optimieren
+        plt.tight_layout()
+        
+        # Als temporäre Datei speichern
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        plt.savefig(temp_file.name, dpi=LayoutConstants.CHART_DPI, 
+                   bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        
+        return temp_file.name
+    
+    def create_multi_metric_overview(self, data_by_sensor: Dict[str, List],
+                                   metrics: List[str],
+                                   time_range: Tuple[datetime, datetime]) -> str:
+        """
+        Erstellt ein Multi-Panel-Diagramm mit mehreren Metriken.
+        
+        Args:
+            data_by_sensor: Dictionary mit Sensor-Daten
+            metrics: Liste der anzuzeigenden Metriken
+            time_range: Zeitbereich
+        
+        Returns:
+            Pfad zur gespeicherten Chart-Datei
+        """
+        if not metrics:
+            return None
+        
+        # Flexibles Grid basierend auf Anzahl der Metriken
+        num_metrics = len(metrics)
+        if num_metrics <= 4:
+            rows, cols = 2, 2
+        elif num_metrics <= 6:
+            rows, cols = 2, 3
+        elif num_metrics <= 9:
+            rows, cols = 3, 3
+        elif num_metrics <= 12:
+            rows, cols = 3, 4
+        else:
+            rows, cols = 4, 4
+            metrics = metrics[:16]  # Max 16 Metriken
+        
+        # Größe anpassen basierend auf Grid
+        fig_width = LayoutConstants.CHART_WIDTH * (cols / 2)
+        fig_height = LayoutConstants.CHART_HEIGHT * (rows / 2)
+        
+        fig, axes = plt.subplots(rows, cols, figsize=(fig_width, fig_height))
+        
+        # Für ein einzelnes Subplot axes zu einer Liste machen
+        if rows == 1 and cols == 1:
+            axes = [axes]
+        elif rows == 1 or cols == 1:
+            axes = axes.flatten()
+        else:
+            axes = axes.flatten()
+        
+        for i, metric_key in enumerate(metrics):
+            ax = axes[i]
+            metric_def = MetricRegistry.get_definition(metric_key)
+            
+            has_data = False
+            
+            for j, (sensor_path, sensor_data) in enumerate(data_by_sensor.items()):
+                if not sensor_data:
+                    continue
+                    
+                # Zeitpunkte und Werte extrahieren (letzte 24 Stunden)
+                timestamps = []
+                values = []
+                
+                cutoff_time = time_range[1] - timedelta(hours=LayoutConstants.CHART_HOURS_WINDOW)
+                
+                for record in reversed(sensor_data):
+                    if record.ts_collected >= cutoff_time:
+                        value = self._extract_sensor_value(record.decoded_data, metric_key)
+                        if value is not None:
+                            timestamps.append(record.ts_collected)
+                            values.append(value)
+                
+                if timestamps and values:
+                    has_data = True
+                    color = self.sensor_colors[j % len(self.sensor_colors)]
+                    
+                    ax.plot(timestamps, values, 
+                           label=sensor_path if len(data_by_sensor) > 1 else None,
+                           color=color, 
+                           linewidth=1.5,
+                           alpha=0.8)
+            
+            if not has_data:
+                ax.text(0.5, 0.5, 'Keine Daten', 
+                       transform=ax.transAxes, ha='center', va='center', 
+                       fontsize=10, alpha=0.5)
+            
+            # Achsen formatieren
+            ax.set_title(metric_def.title, fontsize=12, fontweight='bold')
+            ax.set_ylabel(f'({metric_def.unit})')
+            
+            # Zeitachse
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+            ax.xaxis.set_major_locator(mdates.HourLocator(interval=4))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, fontsize=9)
+            
+            # Grid
+            ax.grid(True, alpha=0.3)
+        
+        # Eventuell leere Subplots verstecken
+        total_subplots = rows * cols
+        for i in range(len(metrics), total_subplots):
+            if i < len(axes):
+                axes[i].set_visible(False)
+        
+        # Gemeinsame Legende wenn mehrere Sensoren
+        if len(data_by_sensor) > 1:
+            handles, labels = axes[0].get_legend_handles_labels()
+            if handles:
+                fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.02), 
+                          ncol=min(4, len(labels)), framealpha=0.9)
+        
+        plt.tight_layout()
+        plt.subplots_adjust(bottom=0.15)
+        
+        # Als temporäre Datei speichern
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
+        plt.savefig(temp_file.name, dpi=LayoutConstants.CHART_DPI, 
+                   bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        
+        return temp_file.name
+    
+    def _extract_sensor_value(self, decoded_data: Dict[str, Any], key: str) -> Optional[float]:
+        """Extrahiert einen Sensorwert aus decoded_data."""
+        if key not in decoded_data:
+            return None
+            
+        value = decoded_data[key]
+        
+        # air-Q gibt oft [Wert, Fehler] zurück
+        if isinstance(value, list) and len(value) > 0:
+            return float(value[0]) if value[0] is not None else None
+        elif isinstance(value, (int, float)):
+            return float(value)
+        else:
+            return None
 
 
 # Farbschema
@@ -250,6 +506,8 @@ class AirQualityPDFGenerator:
         self.styles = getSampleStyleSheet()
         self._setup_styles()
         self.logo_paths = self._get_logo_paths()
+        self.chart_generator = ChartGenerator()
+        self.temp_chart_files = []  # Zum späteren Cleanup
     
     def _setup_styles(self) -> None:
         """Erstellt benutzerdefinierte Styles für das PDF."""
@@ -379,6 +637,9 @@ class AirQualityPDFGenerator:
         
         doc.build(story)
         logger.info("PDF-Bericht erfolgreich generiert")
+        
+        # Cleanup temporärer Chart-Dateien
+        self._cleanup_temp_files()
     
     def _create_empty_report(self, output_buffer: io.BytesIO) -> None:
         """Erstellt einen leeren Bericht wenn keine Daten vorhanden sind."""
@@ -444,19 +705,9 @@ class AirQualityPDFGenerator:
             story.append(logo_table)
             story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
         
-        # Titel mit Jahr und Monat
-        time_range = data['time_range']
-        start_year = time_range[0].year
-        end_year = time_range[1].year
-        start_month = time_range[0].month
-        end_month = time_range[1].month
-
-        if start_year == end_year and start_month == end_month:
-            time_display = f"{start_month:02d}/{start_year}"
-        else:
-            time_display = f"{start_month:02d}/{start_year} - {end_month:02d}/{end_year}"
-        
-        story.append(Paragraph(f"air-Q Luftqualitätsbericht {time_display}", self.styles['CustomTitle']))
+        # Titel mit Enddatum
+        time_range = data['time_range']        
+        story.append(Paragraph(f"air-Q Luftqualitätsbericht {time_range[1].day:02d}.{time_range[1].month:02d}.{time_range[1].year}", self.styles['CustomTitle']))
         
         # Zeitraum (in Berliner Zeit) - zentriert unter dem Titel
         story.append(Paragraph(
@@ -473,6 +724,10 @@ class AirQualityPDFGenerator:
         # Gesamtstatistiken
         story.append(Paragraph("Gesamtstatistiken", self.styles['CustomHeading1']))
         story.extend(self._create_comprehensive_statistics(data))
+        story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
+        
+        # Charts-Übersicht hinzufügen
+        story.extend(self._create_overview_charts(data))
         
         return story
     
@@ -493,23 +748,13 @@ class AirQualityPDFGenerator:
             story.append(Spacer(1, LayoutConstants.STANDARD_SPACER))
         
         # Titel mit Jahr und Monat
-        time_range = data['time_range']
-        start_year = time_range[0].year
-        end_year = time_range[1].year
-        start_month = time_range[0].month
-        end_month = time_range[1].month
-
-        if start_year == end_year and start_month == end_month:
-            time_display = f"{start_month:02d}/{start_year}"
-        else:
-            time_display = f"{start_month:02d}/{start_year} - {end_month:02d}/{end_year}"
+        time_range = data['time_range']      
         
-        story.append(Paragraph(f"Sensor {sensor_path} - Detailanalyse {time_display}", self.styles['CustomTitle']))
+        story.append(Paragraph(f"Sensor {sensor_path} - Detailanalyse {time_range[1].day:02d}.{time_range[1].month:02d}.{time_range[1].year}", self.styles['CustomTitle']))
         
         # Berichtszeitraum (in Berliner Zeit) - zentriert unter dem Titel
         story.append(Paragraph(
-            f"{format_berlin_time(time_range[0])} - "
-            f"{format_berlin_time(time_range[1])}",
+            f"Zeitraum: {format_berlin_time(time_range[0])} - {format_berlin_time(time_range[1])}",
             self.styles['CenteredTimeRange']
         ))
         
@@ -520,7 +765,11 @@ class AirQualityPDFGenerator:
         # Minutenweise aggregierte Messwerte der letzten Minuten
         story.append(Paragraph(f"Aktuelle Messwerte (letzte {LayoutConstants.MINUTES_TO_DISPLAY} Minuten)", self.styles['CustomHeading2']))
         story.extend(self._create_sensor_values_table(sensor_data))
-        
+        story.append(PageBreak())
+
+        # Charts für diesen Sensor hinzufügen
+        story.extend(self._create_sensor_charts(data, sensor_path))
+
         return story
     
     def _create_table_with_style(self, table_data: List[List], col_widths: List[int], 
@@ -849,5 +1098,135 @@ class AirQualityPDFGenerator:
                 8
             )
             story.append(second_table)
+        
+        return story 
+    
+    def _cleanup_temp_files(self) -> None:
+        """Löscht temporäre Chart-Dateien."""
+        for file_path in self.temp_chart_files:
+            try:
+                if os.path.exists(file_path):
+                    os.unlink(file_path)
+            except Exception as e:
+                logger.warning(f"Fehler beim Löschen der temporären Datei {file_path}: {e}")
+        self.temp_chart_files.clear()
+    
+    def _organize_data_by_sensor(self, all_data: List) -> Dict[str, List]:
+        """Organisiert die Daten nach Sensor-Pfad."""
+        data_by_sensor = {}
+        for record in all_data:
+            sensor_path = record.sensor_path
+            if sensor_path not in data_by_sensor:
+                data_by_sensor[sensor_path] = []
+            data_by_sensor[sensor_path].append(record)
+        return data_by_sensor
+    
+    def _create_chart_image(self, chart_path: str, width: int = 480) -> Image:
+        """Erstellt ein ReportLab Image-Objekt aus einem Chart-Pfad."""
+        if not os.path.exists(chart_path):
+            return None
+        
+        # Chart-Datei zur Cleanup-Liste hinzufügen
+        if chart_path not in self.temp_chart_files:
+            self.temp_chart_files.append(chart_path)
+        
+        # Bild proportional skalieren
+        img = Image(chart_path)
+        img.drawWidth = width
+        img.drawHeight = width * 0.5  # 2:1 Verhältnis
+        
+        return img
+    
+    def _create_overview_charts(self, data: Dict[str, Any]) -> List:
+        """Erstellt einzelne große Charts für alle Metriken - 2 pro Seite über 9 Seiten."""
+        story = []
+        all_data = data['data']
+        time_range = data['time_range']
+        
+        if not all_data:
+            return story
+        
+        # Daten nach Sensoren organisieren
+        data_by_sensor = self._organize_data_by_sensor(all_data)
+        available_metrics = MetricRegistry.get_available_metrics(all_data)
+        
+        if not available_metrics:
+            return story
+        
+        # Überschrift nur einmal am Anfang
+        story.append(Paragraph("Luftqualitäts-Trends", self.styles['CustomHeading1']))
+        
+        # Alle 18 Metriken einzeln, 2 pro Seite
+        charts_on_current_page = 0
+        
+        for i, metric_key in enumerate(available_metrics):
+            try:
+                # Einzelnes großes Zeitreihen-Chart für diese Metrik
+                chart_path = self.chart_generator.create_time_series_chart(
+                    data_by_sensor, metric_key, time_range, chart_type="detail"
+                )
+                
+                if chart_path:
+                    chart_img = self._create_chart_image(chart_path, width=500)
+                    if chart_img:
+                        story.append(chart_img)
+                        story.append(Spacer(1, LayoutConstants.SMALL_SPACER))
+                        charts_on_current_page += 1
+                        
+                        # Nach 2 Charts eine neue Seite (außer bei den letzten)
+                        if charts_on_current_page == 2 and i < len(available_metrics) - 1:
+                            story.append(PageBreak())
+                            charts_on_current_page = 0
+                
+            except Exception as e:
+                logger.warning(f"Fehler beim Erstellen des Charts für {metric_key}: {e}")
+        
+        return story
+    
+    def _create_sensor_charts(self, data: Dict[str, Any], sensor_path: str) -> List:
+        """Erstellt einzelne große Charts für alle Metriken eines Sensors - 2 pro Seite über 9 Seiten."""
+        story = []
+        all_data = data['data']
+        time_range = data['time_range']
+        
+        # Daten für diesen Sensor filtern
+        sensor_data = [d for d in all_data if d.sensor_path == sensor_path]
+        
+        if not sensor_data:
+            return story
+        
+        data_by_sensor = {sensor_path: sensor_data}
+        available_metrics = MetricRegistry.get_available_metrics(sensor_data)
+        
+        if not available_metrics:
+            return story
+        
+        # Überschrift nur einmal am Anfang
+        story.append(Paragraph("Zeitreihen-Diagramme", self.styles['CustomHeading2']))
+        
+        # Alle 18 Metriken einzeln, 2 pro Seite
+        charts_on_current_page = 0
+        
+        for i, metric_key in enumerate(available_metrics):
+            try:
+                # Einzelnes großes Zeitreihen-Chart für diese Metrik
+                chart_path = self.chart_generator.create_time_series_chart(
+                    data_by_sensor, metric_key, time_range, chart_type="overview"
+                )
+                
+                if chart_path:
+                    chart_img = self._create_chart_image(chart_path, width=500)
+                    if chart_img:
+                        story.append(chart_img)
+                        story.append(Spacer(1, LayoutConstants.SMALL_SPACER))
+                        charts_on_current_page += 1
+                        
+                        # Nach 2 Charts eine neue Seite (außer bei den letzten)
+                        if charts_on_current_page == 2 and i < len(available_metrics) - 1:
+                            story.append(PageBreak())
+                            charts_on_current_page = 0
+                
+            except Exception as e:
+                logger.warning(f"Fehler beim Erstellen des Charts für {metric_key}: {e}")
         
         return story 

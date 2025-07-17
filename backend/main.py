@@ -196,7 +196,7 @@ async def generate_pdf_report(
         output_buffer.seek(0)
         
         # Aktuelles Jahr und Monat für Dateiname
-        timestamp = datetime.now().strftime("%m_%Y")
+        timestamp = datetime.now().strftime("%d.%m.%Y")
         filename = f"airq_report_{timestamp}.pdf"
         
         # PDF als StreamingResponse zurückgeben
