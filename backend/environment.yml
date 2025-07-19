@@ -5,8 +5,8 @@ channels:
 dependencies:
   - python=3.13.2
   - pip
-  - uv
   - pip:
+      - uv==0.8.0
       - pycryptodome==3.23.0
       - python-dotenv==1.1.0
       - fastapi==0.115.12
