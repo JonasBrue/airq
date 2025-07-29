@@ -1,4 +1,3 @@
-# api.py
 """
 air-Q MCP Server der die Backend API über HTTP verwendet.
 Verwendet die bereits laufenden FastAPI-Endpunkte.
