@@ -11,6 +11,7 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
 - ✅ **Automatisches Polling**: Kontinuierliche Datensammlung von konfigurierten air-Q Sensoren
 - 🔐 **Sichere Entschlüsselung**: Verarbeitung verschlüsselter air-Q Sensordaten
 - 📊 **REST API**: Flexible Abfrage- und Filtermöglichkeiten für Sensordaten
+- 📄 **PDF-Berichte**: Automatische Generierung umfassender Luftqualitäts-Berichte
 - 🤖 **MCP Server**: MCP Integration für natürliche Sprachabfragen
 - 📈 **Monitoring**: Prometheus-Metriken und Grafana-Dashboards
 - 🚨 **Telegram Alerts**: Automatische Benachrichtigungen bei kritischen Luftqualitätswerten
@@ -91,62 +92,10 @@ Dieses Projekt ermöglicht den sicheren Zugriff auf Daten von air-Q-Sensoren, de
 Nach dem Start können Sie die Services unter folgenden URLs erreichen:
 
 - **API Dokumentation**: http://localhost:8000/docs
+- **PDF-Bericht generieren**: http://localhost:8000/report
 - **Grafana Dashboard**: http://localhost:3000 (admin/admin123)
 - **Prometheus**: http://localhost:9090
 - **Health Check**: http://localhost:8000/sensors/health
-
-## 🚨 Telegram Alerts
-
-Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der Gesundheitsindex unter einen kritischen Wert fällt.
-
-### Telegram Bot einrichten
-
-1. **Bot erstellen**
-   - Schreibe eine Nachricht an [@BotFather](https://t.me/BotFather)
-   - Sende `/newbot` und folge den Anweisungen
-   - Notiere dir den Bot-Token
-
-2. **Chat-ID ermitteln**
-   - Schreibe eine Nachricht an deinen Bot
-   - Schreibe eine Nachricht an [@userinfobot](https://t.me/userinfobot)
-   - Notiere dir deine Chat-ID
-
-3. **Konfiguration**
-   ```env
-   TELEGRAM_BOT_TOKEN=dein_bot_token
-   TELEGRAM_CHAT_ID=deine_chat_id
-   HEALTH_ALERT_THRESHOLD=600
-   ALERT_COOLDOWN_MINUTES=30
-   MIN_CONSECUTIVE_POLLS=10
-   ```
-
-### Alert-Funktionen
-
-- **Warnung**: Benachrichtigung wenn Gesundheitsindex unter Schwellenwert fällt
-- **Entwarnung**: Automatische Nachricht wenn sich die Luftqualität wieder verbessert
-- **Rate Limiting**: Verhindert Spam durch Cooldown-Perioden (Standard: 30 Minuten)
-- **Konsekutive Messwerte**: Erfordert mehrere aufeinanderfolgende niedrige Werte bevor Alert gesendet wird (Standard: 10 Polls)
-- **Markdown-Formatierung**: Übersichtliche Darstellung mit Emojis und Formatierung
-
-### Konfigurationsmöglichkeiten
-
-- **`HEALTH_ALERT_THRESHOLD`**: Schwellenwert für den Gesundheitsindex (Standard: 100)
-- **`ALERT_COOLDOWN_MINUTES`**: Wartezeit zwischen gleichartigen Alerts (Standard: 30 Minuten)
-- **`MIN_CONSECUTIVE_POLLS`**: Anzahl aufeinanderfolgender niedriger Messwerte bevor Alert gesendet wird (Standard: 10)
-
-Das System verhindert Fehlalarme durch einzelne Ausreißer-Werte, indem es nur nach mehreren konsekutiven niedrigen Messwerten einen Alert sendet. Sobald ein Messwert wieder über dem Schwellenwert liegt, wird der Zähler zurückgesetzt.
-
-### Beispiel-Nachricht
-
-```
-🚨 Luftqualitäts-Warnung
-
-Sensor: /livingroom
-Gesundheitsindex: 485/1000
-Schwellenwert: 600
-
-Die Luftqualität ist nach 10 konsekutiven Messungen unter den kritischen Wert gefallen!
-```
 
 ## 🤖 MCP Server
 
@@ -223,6 +172,57 @@ curl "http://localhost:8000/sensors/?limit=100&offset=0&sensor_path=%2Fairq%2F1"
 curl "http://localhost:8000/sensors/sensors"
 ```
 
+## 📄 PDF-Berichte
+
+Das System kann automatisch umfassende PDF-Berichte mit Luftqualitätsdaten, Statistiken und Zeitreihen-Diagrammen erstellen.
+
+### PDF-Bericht generieren
+
+```bash
+http://localhost:8000/report
+```
+
+### Berichtsinhalte
+
+Die generierten PDF-Berichte enthalten:
+
+- **Übersichtsseite**:
+  - Sensor-Übersicht mit aktuellen Messwerten
+  - Gesamtstatistiken aller Sensoren
+  - Zeitreihen-Diagramme der wichtigsten Metriken
+
+- **Detailseiten für jeden Sensor**:
+  - Umfassende Statistiken (Durchschnitt, Minimum, Maximum, Standardabweichung)
+  - Minutenweise aggregierte Messwerte der letzten 15 Minuten
+  - Einzelne Zeitreihen-Diagramme für alle verfügbaren Metriken
+
+- **Visualisierungen**:
+  - Zeitreihen-Charts für alle Luftqualitäts-Metriken
+  - Übersichtsgrafiken und Detailansichten (letzte 24 Stunden)
+  - Professionelle Formatierung mit Logos
+
+### Unterstützte Metriken
+
+Die PDF-Berichte dokumentieren automatisch alle verfügbaren Sensordaten.
+
+### Automatische Features
+
+- **Zeitzonenkonvertierung**: Alle Zeitstempel werden automatisch in Berliner Zeit (MEZ/MESZ) angezeigt
+- **Datenperiode**: Berichte enthalten standardmäßig die letzten 30 Tage Sensordaten
+- **Multi-Sensor-Support**: Automatische Erkennung und separate Auswertung aller konfigurierten Sensoren
+- **Statistische Auswertung**: Durchschnitt, Minimum, Maximum und Standardabweichung für alle Metriken
+- **Aktuelle Werte**: Minutenweise aggregierte Messwerte der letzten 15 Minuten
+- **Professionelles Layout**: Inklusive Organisation-Logos und strukturiertem Design
+
+### Entwicklung
+
+Die PDF-Generierung nutzt folgende Technologien:
+
+- **ReportLab**: PDF-Erstellung und Layout
+- **Matplotlib**: Zeitreihen-Diagramme und Visualisierungen
+- **NumPy**: Statistische Berechnungen
+- **SVGlib**: Logo-Integration für professionelles Branding
+
 ## 📊 Monitoring und Dashboards
 
 ### Grafana Dashboard
@@ -244,6 +244,59 @@ In der kostenlosen Edition sind nur begrenzte Anpassungen möglich:
 - **Benutzer-Profile**: Anpassbare Benutzer-Namen und -Einstellungen
 - **Zeitzone**: Benutzer-spezifische Zeitzone-Einstellungen
 
+## 🚨 Telegram Alerts
+
+Das System kann automatisch Benachrichtigungen über Telegram senden, wenn der Gesundheitsindex unter einen kritischen Wert fällt.
+
+### Telegram Bot einrichten
+
+1. **Bot erstellen**
+   - Schreibe eine Nachricht an [@BotFather](https://t.me/BotFather)
+   - Sende `/newbot` und folge den Anweisungen
+   - Notiere dir den Bot-Token
+
+2. **Chat-ID ermitteln**
+   - Schreibe eine Nachricht an deinen Bot
+   - Schreibe eine Nachricht an [@userinfobot](https://t.me/userinfobot)
+   - Notiere dir deine Chat-ID
+
+3. **Konfiguration**
+   ```env
+   TELEGRAM_BOT_TOKEN=dein_bot_token
+   TELEGRAM_CHAT_ID=deine_chat_id
+   HEALTH_ALERT_THRESHOLD=600
+   ALERT_COOLDOWN_MINUTES=30
+   MIN_CONSECUTIVE_POLLS=10
+   ```
+
+### Alert-Funktionen
+
+- **Warnung**: Benachrichtigung wenn Gesundheitsindex unter Schwellenwert fällt
+- **Entwarnung**: Automatische Nachricht wenn sich die Luftqualität wieder verbessert
+- **Rate Limiting**: Verhindert Spam durch Cooldown-Perioden (Standard: 30 Minuten)
+- **Konsekutive Messwerte**: Erfordert mehrere aufeinanderfolgende niedrige Werte bevor Alert gesendet wird (Standard: 10 Polls)
+- **Markdown-Formatierung**: Übersichtliche Darstellung mit Emojis und Formatierung
+
+### Konfigurationsmöglichkeiten
+
+- **`HEALTH_ALERT_THRESHOLD`**: Schwellenwert für den Gesundheitsindex (Standard: 100)
+- **`ALERT_COOLDOWN_MINUTES`**: Wartezeit zwischen gleichartigen Alerts (Standard: 30 Minuten)
+- **`MIN_CONSECUTIVE_POLLS`**: Anzahl aufeinanderfolgender niedriger Messwerte bevor Alert gesendet wird (Standard: 10)
+
+Das System verhindert Fehlalarme durch einzelne Ausreißer-Werte, indem es nur nach mehreren konsekutiven niedrigen Messwerten einen Alert sendet. Sobald ein Messwert wieder über dem Schwellenwert liegt, wird der Zähler zurückgesetzt.
+
+### Beispiel-Nachricht
+
+```
+🚨 Luftqualitäts-Warnung
+
+Sensor: /livingroom
+Gesundheitsindex: 485/1000
+Schwellenwert: 600
+
+Die Luftqualität ist nach 10 konsekutiven Messungen unter den kritischen Wert gefallen!
+```
+
 ## ⚙️ Konfiguration
 
 ### Umgebungsvariablen
@@ -261,7 +314,6 @@ In der kostenlosen Edition sind nur begrenzte Anpassungen möglich:
 | `HEALTH_ALERT_THRESHOLD` | Gesundheitsindex-Schwellenwert | `600` | `600` |
 | `ALERT_COOLDOWN_MINUTES` | Alert-Cooldown in Minuten | `30` | `30` |
 | `MIN_CONSECUTIVE_POLLS` | Minimale Anzahl aufeinanderfolgender Polls für einen Alarm | `10` | `10` |
-
 
 ## 🔧 Entwicklung
 
@@ -303,12 +355,14 @@ backend/
 ├── db/                  # Datenbank Models
 │   ├── database.py
 │   └── models.py
-├── task/                # Background Tasks
-│   ├── config.py
-│   ├── notifications.py
-│   └── poller.py
-└── metrics/             # Prometheus Metriken
-    └── prometheus_metrics.py
+├── metrics/             # Prometheus Metriken
+│   └── prometheus_metrics.py
+├── reports/             # PDF Reports
+│   └── pdf_generator.py
+└── task/                # Background Tasks
+    ├── config.py
+    ├── notifications.py
+    └── poller.py
 
 monitoring/
 ├── grafana/             # Grafana Konfiguration
